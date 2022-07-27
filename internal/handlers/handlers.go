@@ -248,16 +248,6 @@ func (h *handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
-	var poolSize int
-	pool := make(chan func(), poolSize)
-	for i := 0; i < poolSize; i++ {
-		go func() {
-			for f := range pool {
-				f()
-			}
-		}()
-	}
-
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -273,8 +263,10 @@ func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		pool <- func() {
-			_ = h.service.DeleteUserURLs(r.Context(), userID, urls)
+		err = h.service.DeleteUserURLs(r.Context(), userID, urls)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}()
 

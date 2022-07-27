@@ -47,17 +47,6 @@ func NewRepo(dsn string) (*pgRepo, error) {
 	}, nil
 }
 
-func (r *pgRepo) bindingExists(ctx context.Context, urlID, userID string) (bool, error) {
-	var count int64
-	row := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM urls "+
-		"WHERE user_id = $1 AND url = $2", userID, urlID)
-	err := row.Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, err
-}
-
 func (r *pgRepo) Add(ctx context.Context, urlID, url, userID string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
