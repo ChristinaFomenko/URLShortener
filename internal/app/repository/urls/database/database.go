@@ -8,6 +8,7 @@ import (
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
+	"sync"
 	"time"
 )
 
@@ -153,10 +154,14 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 }
 
 func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
 	}
+	var wg = &sync.WaitGroup{}
 
 	defer tx.Rollback()
 
@@ -167,11 +172,17 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 	defer stmt.Close()
 
 	for _, url := range toDelete {
-		_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
-		if err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func() {
+			_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
+			if err != nil {
+				return
+			}
+			wg.Done()
+
+		}()
 	}
+	wg.Wait()
 
 	return tx.Commit()
 }

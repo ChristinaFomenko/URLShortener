@@ -258,6 +258,7 @@ func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	urlsToDelete := make([]string, 0)
 	err = json.Unmarshal(body, &urlsToDelete)
 	if err != nil {
+		log.WithError(err).WithField("resp", urlsToDelete).Error("marshal response error")
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
