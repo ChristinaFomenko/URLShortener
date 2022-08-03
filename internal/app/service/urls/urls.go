@@ -41,7 +41,7 @@ type service struct {
 }
 
 func NewService(repository urlRepository, generator generator, host string) *service {
-	return &service{
+	s := service{
 		repository:   repository,
 		generator:    generator,
 		host:         host,
@@ -51,6 +51,9 @@ func NewService(repository urlRepository, generator generator, host string) *ser
 		timer:        time.NewTimer(0),
 	}
 
+	go s.worker()
+
+	return &s
 }
 
 func (s *service) Shorten(ctx context.Context, url, userID string) (string, error) {
