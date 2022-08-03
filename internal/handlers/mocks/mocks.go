@@ -36,11 +36,9 @@ func (m *Mockservice) EXPECT() *MockserviceMockRecorder {
 }
 
 // DeleteUserURLs mocks base method.
-func (m *Mockservice) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
+func (m *Mockservice) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteUserURLs", ctx, userID, toDelete)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DeleteUserURLs", ctx, userID, toDelete)
 }
 
 // DeleteUserURLs indicates an expected call of DeleteUserURLs.
