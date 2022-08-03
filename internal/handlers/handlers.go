@@ -248,45 +248,27 @@ func (h *handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if len(body) == 0 {
-		http.Error(w, "request body must not be empty", 400)
-		return
-	}
-
-	var toDelete []string
-
-	err = json.Unmarshal(body, &toDelete)
+	urlsToDelete := make([]string, 0)
+	err = json.Unmarshal(body, &urlsToDelete)
 	if err != nil {
-		http.Error(w, "request body data is not valid", 400)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-
 	userID := h.auth.UserID(r.Context())
 
-	err = h.service.DeleteUserURLs(r.Context(), userID, toDelete)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	//urlsToDelete := make([]string, 0)
-	//err = json.Unmarshal(body, &urlsToDelete)
-	//if err != nil {
-	//	log.WithError(err).WithField("resp", urlsToDelete).Error("marshal response error")
-	//	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-	//	return
-	//}
-	//userID := h.auth.UserID(r.Context())
-	//
-	//go func() {
-	//	h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
-	//}()
+	go func() {
+		err = h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}()
 
 	w.WriteHeader(http.StatusAccepted)
 }

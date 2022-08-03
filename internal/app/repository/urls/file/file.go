@@ -197,9 +197,6 @@ func (r *fileRepository) urlExist(url string) (string, bool) {
 	return "", false
 }
 
-func (r *fileRepository) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
-	r.ma.Lock()
-	defer r.ma.Unlock()
-
+func (r *fileRepository) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
 	return nil
 }
