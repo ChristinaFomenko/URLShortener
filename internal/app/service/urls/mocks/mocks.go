@@ -64,17 +64,17 @@ func (mr *MockurlRepositoryMockRecorder) AddBatch(ctx, urls, userID interface{})
 }
 
 // DeleteUserURLs mocks base method.
-func (m *MockurlRepository) DeleteUserURLs(ctx context.Context, userID string, urls []string) error {
+func (m *MockurlRepository) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteUserURLs", ctx, userID, urls)
+	ret := m.ctrl.Call(m, "DeleteUserURLs", ctx, toDelete)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteUserURLs indicates an expected call of DeleteUserURLs.
-func (mr *MockurlRepositoryMockRecorder) DeleteUserURLs(ctx, userID, urls interface{}) *gomock.Call {
+func (mr *MockurlRepositoryMockRecorder) DeleteUserURLs(ctx, toDelete interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUserURLs", reflect.TypeOf((*MockurlRepository)(nil).DeleteUserURLs), ctx, userID, urls)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUserURLs", reflect.TypeOf((*MockurlRepository)(nil).DeleteUserURLs), ctx, toDelete)
 }
 
 // FetchURLs mocks base method.
