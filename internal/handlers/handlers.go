@@ -22,7 +22,7 @@ type service interface {
 	Expand(ctx context.Context, id string) (string, error)
 	FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error)
 	ShortenBatch(ctx context.Context, originalURLs []models.OriginalURL, userID string) ([]models.UserURL, error)
-	DeleteUserURLs(ctx context.Context, userID string, urls []string) error
+	DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error
 }
 
 type auth interface {
@@ -249,21 +249,21 @@ func (h *handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
+	if err != nil || len(body) == 0 {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	userID := h.auth.UserID(r.Context())
-	var urls []string
-	err = json.Unmarshal(body, &urls)
+	urlsToDelete := make([]string, 0)
+	err = json.Unmarshal(body, &urlsToDelete)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
+	userID := h.auth.UserID(r.Context())
 
 	go func() {
-		err = h.service.DeleteUserURLs(r.Context(), userID, urls)
+		err = h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

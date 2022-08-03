@@ -57,28 +57,13 @@ func main() {
 	router.Use(compress.Compressing)
 	router.Use(auth.Auth)
 
-	var poolSize int
-	pool := make(chan func(), poolSize)
-	for i := 0; i < poolSize; i++ {
-		go func() {
-			for f := range pool {
-				f()
-			}
-		}()
-	}
-
 	router.Post("/", handlers.New(service, auth, pingSrvc).Shorten)
 	router.Get("/{id}", handlers.New(service, auth, pingSrvc).Expand)
 	router.Post("/api/shorten", handlers.New(service, auth, pingSrvc).APIJSONShorten)
 	router.Get("/api/user/urls", handlers.New(service, auth, pingSrvc).FetchURLs)
 	router.Get("/ping", handlers.New(service, auth, pingSrvc).Ping)
 	router.Post("/api/shorten/batch", handlers.New(service, auth, pingSrvc).ShortenBatch)
-
-	go func() {
-		pool <- func() {
-			router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
-		}
-	}()
+	router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
 
 	address := cfg.ServerAddress
 	log.WithField("address", address).Info("server starts")

@@ -152,28 +152,25 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 	return tx.Commit()
 }
 
-func (r *pgRepo) DeleteUserURLs(ctx context.Context, userID string, urls []string) error {
+func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
 	}
 
-	defer func(tx *sql.Tx) {
-		_ = tx.Rollback()
-	}(tx)
+	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted = TRUE WHERE id = $1")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted = TRUE WHERE user_id = $1 AND url = $2")
 	if err != nil {
 		return err
 	}
+	defer stmt.Close()
 
-	defer func(stmt *sql.Stmt) {
-		_ = stmt.Close()
-	}(stmt)
-
-	_, err = stmt.ExecContext(ctx, stmt, userID, urls)
-	if err != nil {
-		return err
+	for _, url := range toDelete {
+		_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
+		if err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

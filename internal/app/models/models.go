@@ -11,3 +11,8 @@ type UserURL struct {
 	OriginalURL   string
 	IsDeleted     bool `db:"is_deleted"`
 }
+
+type DeleteUserURLs struct {
+	UserID string
+	Short  string
+}

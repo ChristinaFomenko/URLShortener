@@ -8,18 +8,23 @@ import (
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	_ "github.com/jackc/pgx/v4"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 //go:generate mockgen -source=urls.go -destination=mocks/mocks.go
 
-const idLength int64 = 5
+const (
+	idLength int64 = 5
+	BufLen         = 3
+	Timeout        = 5
+)
 
 type urlRepository interface {
 	Add(ctx context.Context, urlID, url, userID string) error
 	Get(ctx context.Context, urlID string) (string, error)
 	FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error)
 	AddBatch(ctx context.Context, urls []models.UserURL, userID string) error
-	DeleteUserURLs(ctx context.Context, userID string, urls []string) error
+	DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error
 }
 
 type generator interface {
@@ -27,17 +32,26 @@ type generator interface {
 }
 
 type service struct {
-	repository urlRepository
-	generator  generator
-	host       string
+	repository   urlRepository
+	generator    generator
+	host         string
+	deletionChan chan models.DeleteUserURLs
+	buf          []models.DeleteUserURLs
+	timer        *time.Timer
+	isTimeout    bool
 }
 
 func NewService(repository urlRepository, generator generator, host string) *service {
 	return &service{
-		repository: repository,
-		generator:  generator,
-		host:       host,
+		repository:   repository,
+		generator:    generator,
+		host:         host,
+		deletionChan: make(chan models.DeleteUserURLs),
+		buf:          make([]models.DeleteUserURLs, 0, BufLen),
+		isTimeout:    true,
+		timer:        time.NewTimer(0),
 	}
+
 }
 
 func (s *service) Shorten(ctx context.Context, url, userID string) (string, error) {
@@ -135,23 +149,47 @@ func (s *service) buildShortURL(id string) string {
 	return fmt.Sprintf("%s/%s", s.host, id)
 }
 
-func (s *service) DeleteUserURLs(ctx context.Context, userID string, urls []string) error {
-	usr, err := s.repository.Get(ctx, userID)
-	if err != nil {
-		log.WithError(err).
-			WithField("userID", userID).
-			Error("get userID error")
-		return err
+func (s *service) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
+	for _, v := range toDelete {
+		delUserURLs := models.DeleteUserURLs{UserID: userID, Short: v}
+		s.deletionChan <- delUserURLs
 	}
-
-	err = s.repository.DeleteUserURLs(ctx, usr, urls)
-	if err != nil {
-		log.WithError(err).
-			WithField("userID", usr).
-			WithField("urls", urls).
-			Error("delete user urls error")
-		return err
-	}
-
 	return nil
+}
+
+func (s *service) flush(ctx context.Context) {
+	del := make([]models.DeleteUserURLs, len(s.buf))
+	copy(del, s.buf)
+	s.buf = make([]models.DeleteUserURLs, 0)
+	go func() {
+		err := s.repository.DeleteUserURLs(ctx, del)
+		if err != nil {
+			log.Printf("error deleting: " + err.Error())
+		}
+	}()
+}
+
+func (s *service) worker() {
+	ctx := context.Background()
+
+	for {
+		select {
+		case delRequest := <-s.deletionChan:
+			if s.isTimeout {
+				s.timer.Reset(time.Second * Timeout)
+				s.isTimeout = false
+			}
+			s.buf = append(s.buf, delRequest)
+			if len(s.buf) >= BufLen {
+				s.flush(ctx)
+				s.timer.Stop()
+				s.isTimeout = true
+			}
+		case <-s.timer.C:
+			if len(s.buf) > 0 {
+				s.flush(ctx)
+			}
+			s.isTimeout = true
+		}
+	}
 }
