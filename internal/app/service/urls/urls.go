@@ -14,9 +14,9 @@ import (
 //go:generate mockgen -source=urls.go -destination=mocks/mocks.go
 
 const (
-	idLength int64 = 5
-	BufLen         = 3
-	Timeout        = 5
+	idLength int64         = 5
+	BufLen   int           = 3
+	Timeout  time.Duration = 5
 )
 
 type urlRepository interface {
