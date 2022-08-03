@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ChristinaFomenko/shortener/internal/app/models"
+	"github.com/ChristinaFomenko/shortener/internal/utils"
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	_ "github.com/jackc/pgx/v4"
 	log "github.com/sirupsen/logrus"
@@ -14,9 +15,7 @@ import (
 //go:generate mockgen -source=urls.go -destination=mocks/mocks.go
 
 const (
-	idLength int64         = 5
-	BufLen   int           = 3
-	Timeout  time.Duration = 5
+	idLength int64 = 5
 )
 
 type urlRepository interface {
@@ -47,7 +46,7 @@ func NewService(repository urlRepository, generator generator, host string) *ser
 		generator:    generator,
 		host:         host,
 		deletionChan: make(chan models.DeleteUserURLs),
-		buf:          make([]models.DeleteUserURLs, 0, BufLen),
+		buf:          make([]models.DeleteUserURLs, 0, utils.BufLen),
 		isTimeout:    true,
 		timer:        time.NewTimer(0),
 	}
@@ -176,11 +175,11 @@ func (s *service) worker() {
 		select {
 		case delRequest := <-s.deletionChan:
 			if s.isTimeout {
-				s.timer.Reset(time.Second * Timeout)
+				s.timer.Reset(time.Second * utils.Timeout)
 				s.isTimeout = false
 			}
 			s.buf = append(s.buf, delRequest)
-			if len(s.buf) >= BufLen {
+			if len(s.buf) >= utils.BufLen {
 				s.flush(ctx)
 				s.timer.Stop()
 				s.isTimeout = true
