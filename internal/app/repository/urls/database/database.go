@@ -153,7 +153,7 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 	return tx.Commit()
 }
 
-func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+func (r *pgRepo) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -171,16 +171,16 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 	}
 	defer stmt.Close()
 
-	for _, url := range toDelete {
+	for _, s := range toDelete {
 		wg.Add(1)
-		go func() {
-			_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
+		go func(s string) {
+			_, err = stmt.ExecContext(ctx, userID, s)
 			if err != nil {
 				return
 			}
 			wg.Done()
 
-		}()
+		}(s)
 	}
 	wg.Wait()
 
