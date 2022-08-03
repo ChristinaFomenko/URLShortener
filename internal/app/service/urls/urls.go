@@ -151,12 +151,11 @@ func (s *service) buildShortURL(id string) string {
 	return fmt.Sprintf("%s/%s", s.host, id)
 }
 
-func (s *service) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
+func (s *service) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) {
 	for _, v := range toDelete {
 		delUserURLs := models.DeleteUserURLs{UserID: userID, Short: v}
 		s.deletionChan <- delUserURLs
 	}
-	return nil
 }
 
 func (s *service) flush(ctx context.Context) {
