@@ -112,5 +112,8 @@ func (r *repository) urlExist(url string) (string, bool) {
 }
 
 func (r *repository) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+	r.ma.Lock()
+	defer r.ma.Unlock()
+
 	return nil
 }
