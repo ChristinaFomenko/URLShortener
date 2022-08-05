@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/ChristinaFomenko/shortener/configs"
 	"github.com/ChristinaFomenko/shortener/internal/app/generator"
 	"github.com/ChristinaFomenko/shortener/internal/app/hasher"
@@ -8,23 +9,30 @@ import (
 	authService "github.com/ChristinaFomenko/shortener/internal/app/service/auth"
 	pingService "github.com/ChristinaFomenko/shortener/internal/app/service/ping"
 	serviceURL "github.com/ChristinaFomenko/shortener/internal/app/service/urls"
+	"github.com/ChristinaFomenko/shortener/internal/app/worker"
 	"github.com/ChristinaFomenko/shortener/internal/handlers"
 	"github.com/ChristinaFomenko/shortener/internal/middlewares"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 	"net/http"
+	"os"
+	"os/signal"
 )
 
-const workerCount = 10
-
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Config
 	cfg, err := configs.NewConfig()
 	if err != nil {
 		log.Fatalf("failed to retrieve env variables, %v", err)
 	}
+
+	wp := worker.New(ctx, cfg.NumbWorkers, cfg.WorkerBuff)
+	go func() {
+		wp.Run(ctx)
+	}()
 
 	// Repositories
 	repository, err := repositoryURL.NewStorage(cfg.FileStoragePath, cfg.DatabaseDSN)
@@ -42,7 +50,6 @@ func main() {
 	authSrvc := authService.NewService(helper, hash)
 	pingSrvc := pingService.NewService(repository)
 
-	worker := errgroup.Group{}
 	// Route
 	router := chi.NewRouter()
 
@@ -61,20 +68,27 @@ func main() {
 	router.Use(compress.Compressing)
 	router.Use(auth.Auth)
 
-	router.Post("/", handlers.New(service, auth, pingSrvc).Shorten)
-	router.Get("/{id}", handlers.New(service, auth, pingSrvc).Expand)
-	router.Post("/api/shorten", handlers.New(service, auth, pingSrvc).APIJSONShorten)
-	router.Get("/api/user/urls", handlers.New(service, auth, pingSrvc).FetchURLs)
-	router.Get("/ping", handlers.New(service, auth, pingSrvc).Ping)
-	router.Post("/api/shorten/batch", handlers.New(service, auth, pingSrvc).ShortenBatch)
-
-	worker.SetLimit(workerCount)
-	worker.Go(func() error {
-		router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
-		return nil
-	})
+	router.Post("/", handlers.New(service, auth, pingSrvc, wp).Shorten)
+	router.Get("/{id}", handlers.New(service, auth, pingSrvc, wp).Expand)
+	router.Post("/api/shorten", handlers.New(service, auth, pingSrvc, wp).APIJSONShorten)
+	router.Get("/api/user/urls", handlers.New(service, auth, pingSrvc, wp).FetchURLs)
+	router.Get("/ping", handlers.New(service, auth, pingSrvc, wp).Ping)
+	router.Post("/api/shorten/batch", handlers.New(service, auth, pingSrvc, wp).ShortenBatch)
+	router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc, wp).DeleteUserURLs)
 
 	address := cfg.ServerAddress
 	log.WithField("address", address).Info("server starts")
-	log.Fatal(http.ListenAndServe(address, router))
+
+	go func() {
+		log.Fatal(http.ListenAndServe(address, router))
+		cancel()
+	}()
+
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+	select {
+	case <-sigint:
+		cancel()
+	case <-ctx.Done():
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/ChristinaFomenko/shortener/internal/app/models"
+	"github.com/ChristinaFomenko/shortener/internal/app/worker"
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	"github.com/asaskevich/govalidator"
 	"github.com/go-chi/chi/v5"
@@ -37,13 +38,15 @@ type handler struct {
 	service     service
 	auth        auth
 	pingService pingService
+	wp          worker.Workers
 }
 
-func New(service service, userAuth auth, pingServ pingService) *handler {
+func New(service service, userAuth auth, pingServ pingService, wp *worker.Workers) *handler {
 	return &handler{
 		service:     service,
 		auth:        userAuth,
 		pingService: pingServ,
+		wp:          *wp,
 	}
 }
 
@@ -262,13 +265,10 @@ func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := h.auth.UserID(r.Context())
 
-	go func() {
-		err = h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}()
+	h.wp.Push(func(ctx context.Context) error {
+		err := h.service.DeleteUserURLs(ctx, userID, urlsToDelete)
+		return err
+	})
 
 	w.WriteHeader(http.StatusAccepted)
 }

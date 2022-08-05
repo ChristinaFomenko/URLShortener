@@ -6,12 +6,19 @@ import (
 	"os"
 )
 
+const (
+	NumbWorkers = 10
+	WorkerBuff  = 100
+)
+
 type appConfig struct {
 	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:":8080"`
 	BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8080/"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:"storage.dat"`
 	DatabaseDSN     string `env:"DATABASE_DSN"`
 	SecretKey       []byte
+	NumbWorkers     int `env:"NUMBER_OF_WORKERS"`
+	WorkerBuff      int `env:"WORKERS_BUFFER"`
 }
 
 func NewConfig() (*appConfig, error) {
@@ -48,6 +55,8 @@ func NewConfig() (*appConfig, error) {
 		FileStoragePath: *fileStoragePath,
 		DatabaseDSN:     *databaseDSN,
 		SecretKey:       []byte(*secretKey),
+		NumbWorkers:     NumbWorkers,
+		WorkerBuff:      WorkerBuff,
 	}, nil
 }
 
