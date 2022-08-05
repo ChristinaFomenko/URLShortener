@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 //go:generate mockgen -source=handlers.go -destination=mocks/mocks.go
@@ -248,6 +249,9 @@ func (h *handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -260,10 +264,10 @@ func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	userID := h.auth.UserID(r.Context())
+	userID := h.auth.UserID(ctx)
 
 	go func() {
-		err = h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
+		err = h.service.DeleteUserURLs(ctx, userID, urlsToDelete)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
