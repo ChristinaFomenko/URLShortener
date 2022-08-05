@@ -28,9 +28,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create a storage %v", err)
 	}
-	//defer func(repository repositoryURL.Repo) {
-	//	_ = repository.Close()
-	//}(repository)
+	defer func(repository repositoryURL.Repo) {
+		_ = repository.Close()
+	}(repository)
 
 	// Services
 	helper := generator.NewGenerator()
@@ -63,10 +63,7 @@ func main() {
 	router.Get("/api/user/urls", handlers.New(service, auth, pingSrvc).FetchURLs)
 	router.Get("/ping", handlers.New(service, auth, pingSrvc).Ping)
 	router.Post("/api/shorten/batch", handlers.New(service, auth, pingSrvc).ShortenBatch)
-
-	go func() {
-		router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
-	}()
+	router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
 
 	address := cfg.ServerAddress
 	log.WithField("address", address).Info("server starts")
