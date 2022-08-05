@@ -78,7 +78,7 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	defer cancel()
 
 	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `select url from urls where id=$1 and is_deleted = false`, urlID).Scan(&url)
+	_ = r.db.QueryRowContext(ctx, `select url, is_deleted from urls where id=$1`, urlID).Scan(&url)
 	if url.Valid {
 		return url.String, nil
 	}
