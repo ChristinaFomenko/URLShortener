@@ -6,6 +6,7 @@ type OriginalURL struct {
 }
 
 type UserURL struct {
+	UserID        string
 	CorrelationID string
 	ShortURL      string
 	OriginalURL   string

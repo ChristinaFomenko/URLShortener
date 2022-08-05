@@ -77,13 +77,24 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `select url from urls where id=$1 and is_deleted = false`, urlID).Scan(&url)
-	if url.Valid {
-		return url.String, nil
+	get := `SELECT is_deleted FROM urls WHERE url=$1;`
+	query := r.db.QueryRowContext(ctx, get, urlID)
+	res := models.UserURL{}
+	query.Scan(&res.OriginalURL, &res.IsDeleted)
+	if res.OriginalURL == "" {
+		return "", errs.ErrURLNotFound
+	}
+	if res.IsDeleted {
+		return "", errs.ErrDeleted
 	}
 
-	return "", errs.ErrURLNotFound
+	//var url sql.NullString
+	//_ = r.db.QueryRowContext(ctx, `select url from urls where id=$1 and is_deleted = true`, urlID).Scan(&url)
+	//if url.Valid {
+	//	return url.String, nil
+	//}
+	//
+	return res.OriginalURL, nil
 }
 
 func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error) {
@@ -152,7 +163,7 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 	return tx.Commit()
 }
 
-func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -167,7 +178,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 	defer stmt.Close()
 
 	for _, url := range toDelete {
-		_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
+		_, err = stmt.ExecContext(ctx, url.UserID, url.ShortURL)
 		if err != nil {
 			return err
 		}
