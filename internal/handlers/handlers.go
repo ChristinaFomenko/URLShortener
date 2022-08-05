@@ -10,15 +10,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
 	"net/http"
 )
 
 //go:generate mockgen -source=handlers.go -destination=mocks/mocks.go
-
-const workerCount = 10
 
 type service interface {
 	Shorten(ctx context.Context, url string, userID string) (string, error)
@@ -40,19 +37,14 @@ type handler struct {
 	service     service
 	auth        auth
 	pingService pingService
-	worker      errgroup.Group
 }
 
 func New(service service, userAuth auth, pingServ pingService) *handler {
-	h := &handler{
+	return &handler{
 		service:     service,
 		auth:        userAuth,
 		pingService: pingServ,
-		worker:      errgroup.Group{},
 	}
-	h.worker.SetLimit(workerCount)
-
-	return h
 }
 
 // Shorten Cut URL
@@ -270,9 +262,13 @@ func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := h.auth.UserID(r.Context())
 
-	h.worker.Go(func() error {
-		return h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
-	})
+	go func() {
+		err = h.service.DeleteUserURLs(r.Context(), userID, urlsToDelete)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}()
 
 	w.WriteHeader(http.StatusAccepted)
 }

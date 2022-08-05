@@ -13,8 +13,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"net/http"
 )
+
+const workerCount = 10
 
 func main() {
 	// Config
@@ -39,6 +42,7 @@ func main() {
 	authSrvc := authService.NewService(helper, hash)
 	pingSrvc := pingService.NewService(repository)
 
+	worker := errgroup.Group{}
 	// Route
 	router := chi.NewRouter()
 
@@ -63,7 +67,12 @@ func main() {
 	router.Get("/api/user/urls", handlers.New(service, auth, pingSrvc).FetchURLs)
 	router.Get("/ping", handlers.New(service, auth, pingSrvc).Ping)
 	router.Post("/api/shorten/batch", handlers.New(service, auth, pingSrvc).ShortenBatch)
-	router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
+
+	worker.SetLimit(workerCount)
+	worker.Go(func() error {
+		router.Delete("/api/user/urls", handlers.New(service, auth, pingSrvc).DeleteUserURLs)
+		return nil
+	})
 
 	address := cfg.ServerAddress
 	log.WithField("address", address).Info("server starts")
