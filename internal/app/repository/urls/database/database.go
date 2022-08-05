@@ -77,24 +77,13 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	get := `SELECT is_deleted FROM urls WHERE url=$1;`
-	query := r.db.QueryRowContext(ctx, get, urlID)
-	res := models.UserURL{}
-	query.Scan(&res.OriginalURL, &res.IsDeleted)
-	if res.OriginalURL == "" {
-		return "", errs.ErrURLNotFound
-	}
-	if res.IsDeleted {
-		return "", errs.ErrDeleted
+	var url sql.NullString
+	_ = r.db.QueryRowContext(ctx, `select url from urls where id=$1 and is_deleted = false`, urlID).Scan(&url)
+	if url.Valid {
+		return url.String, nil
 	}
 
-	//var url sql.NullString
-	//_ = r.db.QueryRowContext(ctx, `select url from urls where id=$1 and is_deleted = true`, urlID).Scan(&url)
-	//if url.Valid {
-	//	return url.String, nil
-	//}
-	//
-	return res.OriginalURL, nil
+	return "", errs.ErrURLNotFound
 }
 
 func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error) {

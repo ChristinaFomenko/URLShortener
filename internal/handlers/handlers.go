@@ -94,7 +94,7 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 	url, err := h.service.Expand(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, errs.ErrURLNotFound) {
-			http.Error(w, "url not found", http.StatusTemporaryRedirect)
+			http.Error(w, "url not found", http.StatusNoContent)
 			return
 		}
 
