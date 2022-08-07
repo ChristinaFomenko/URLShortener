@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/ChristinaFomenko/shortener/internal/app/models"
+	"github.com/ChristinaFomenko/shortener/migrations"
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
@@ -28,6 +29,7 @@ type pgRepo struct {
 
 func NewRepo(dsn string) (*pgRepo, error) {
 	db, err := sql.Open("postgres", dsn)
+	err = migrations.Migrate(context.Background(), db)
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +79,19 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	result := ""
+	deleted_at := 0
+
 	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at IS NULL`, urlID).Scan(&url)
+	_ = r.db.QueryRowContext(ctx, `SELECT url, deleted_at FROM urls WHERE id=$1`, urlID).Scan(&url, &result, &deleted_at)
 	if url.Valid {
 		return url.String, nil
 	}
+	if deleted_at == 1 {
+		return "", errs.ErrDeleted
+	}
 
-	return "", errs.ErrURLNotFound
+	return result, nil
 }
 
 func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error) {
@@ -160,7 +168,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at ='1' WHERE user_id = $1 AND url = $2")
 	if err != nil {
 		return err
 	}
