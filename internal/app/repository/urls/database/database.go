@@ -155,6 +155,9 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 }
 
 func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -162,7 +165,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2 AND deleted_at IS NULL")
 	if err != nil {
 		return err
 	}
@@ -171,6 +174,9 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 	for _, url := range toDelete {
 		_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.New("record not found or already deleted")
+			}
 			return err
 		}
 	}
