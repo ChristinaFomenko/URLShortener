@@ -80,15 +80,11 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	defer cancel()
 
 	result := ""
-	var deletedAt int
 
 	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at=$2`, urlID, deletedAt).Scan(&url, &result)
+	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at IS NULL`, urlID).Scan(&url, &result)
 	if url.Valid {
 		return url.String, nil
-	}
-	if deletedAt == 1 {
-		return "", errs.ErrDeleted
 	}
 
 	return result, nil
@@ -168,7 +164,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at ='1' WHERE user_id = $1 AND url = $2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2")
 	if err != nil {
 		return err
 	}
