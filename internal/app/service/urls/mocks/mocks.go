@@ -64,7 +64,7 @@ func (mr *MockurlRepositoryMockRecorder) AddBatch(ctx, urls, userID interface{})
 }
 
 // DeleteUserURLs mocks base method.
-func (m *MockurlRepository) DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) error {
+func (m *MockurlRepository) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteUserURLs", ctx, toDelete)
 	ret0, _ := ret[0].(error)
