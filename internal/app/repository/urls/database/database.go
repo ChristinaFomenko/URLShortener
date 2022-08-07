@@ -152,7 +152,7 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 	return tx.Commit()
 }
 
-func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) error {
+func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) 
 	defer stmt.Close()
 
 	for _, url := range toDelete {
-		_, err = stmt.ExecContext(ctx, url.UserID, url.ShortURL)
+		_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
 		if err != nil {
 			return err
 		}

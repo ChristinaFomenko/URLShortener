@@ -16,7 +16,7 @@ type Repo interface {
 	Ping(ctx context.Context) error
 	AddBatch(ctx context.Context, urls []models.UserURL, userID string) error
 	Close() error
-	DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) error
+	DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error
 }
 
 func NewStorage(filePath string, databaseDSN string) (Repo, error) {

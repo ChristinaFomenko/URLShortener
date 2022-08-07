@@ -23,7 +23,7 @@ type urlRepository interface {
 	Get(ctx context.Context, urlID string) (string, error)
 	FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error)
 	AddBatch(ctx context.Context, urls []models.UserURL, userID string) error
-	DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) error
+	DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error
 }
 
 type generator interface {
@@ -34,8 +34,8 @@ type service struct {
 	repository   urlRepository
 	generator    generator
 	host         string
-	deletionChan chan models.UserURL
-	buf          []models.UserURL
+	deletionChan chan models.DeleteUserURLs
+	buf          []models.DeleteUserURLs
 	timer        *time.Timer
 	isTimeout    bool
 }
@@ -45,8 +45,8 @@ func NewService(repository urlRepository, generator generator, host string) *ser
 		repository:   repository,
 		generator:    generator,
 		host:         host,
-		deletionChan: make(chan models.UserURL),
-		buf:          make([]models.UserURL, 0, utils.BufLen),
+		deletionChan: make(chan models.DeleteUserURLs),
+		buf:          make([]models.DeleteUserURLs, 0, utils.BufLen),
 		isTimeout:    true,
 		timer:        time.NewTimer(0),
 	}
@@ -153,16 +153,16 @@ func (s *service) buildShortURL(id string) string {
 
 func (s *service) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
 	for _, v := range toDelete {
-		delUserURLs := models.UserURL{UserID: userID, ShortURL: v}
+		delUserURLs := models.DeleteUserURLs{UserID: userID, Short: v}
 		s.deletionChan <- delUserURLs
 	}
 	return nil
 }
 
 func (s *service) flush(ctx context.Context) {
-	del := make([]models.UserURL, len(s.buf))
+	del := make([]models.DeleteUserURLs, len(s.buf))
 	copy(del, s.buf)
-	s.buf = make([]models.UserURL, 0)
+	s.buf = make([]models.DeleteUserURLs, 0)
 	go func() {
 		err := s.repository.DeleteUserURLs(ctx, del)
 		if err != nil {
