@@ -51,14 +51,14 @@ func (r *pgRepo) Add(ctx context.Context, urlID, url, userID string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, `insert into urls(id,url,user_id) values ($1,$2,$3)`,
+	_, err := r.db.ExecContext(ctx, `INSERT INTO urls(id,url,user_id) VALUES ($1,$2,$3)`,
 		urlID,
 		url,
 		&userID)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == pgerrcode.UniqueViolation {
-			err = r.db.QueryRowContext(ctx, "select id from urls where url=$1", url).Scan(&urlID)
+			err = r.db.QueryRowContext(ctx, "SELECT id FROM urls WHERE url=$1", url).Scan(&urlID)
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	defer cancel()
 
 	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `select url, is_deleted from urls where id=$1`, urlID).Scan(&url)
+	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at = NULL`, urlID).Scan(&url)
 	if url.Valid {
 		return url.String, nil
 	}
@@ -91,7 +91,7 @@ func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL
 	defer cancel()
 
 	res := make([]models.UserURL, 0)
-	rows, err := r.db.QueryContext(ctx, `select id, url from urls where user_id=$1 and is_deleted = false;`, userID)
+	rows, err := r.db.QueryContext(ctx, `select id, url from urls where user_id=$1 and deleted_at = NULL;`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 		_ = tx.Rollback()
 	}(tx)
 
-	stmt, err := tx.PrepareContext(ctx, `insert into urls(id,url,user_id) values ($1,$2,$3);`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO urls(id,url,user_id) VALUES ($1,$2,$3);`)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.UserURL) 
 
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET is_deleted = TRUE WHERE user_id = $1 AND url = $2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2")
 	if err != nil {
 		return err
 	}

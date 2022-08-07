@@ -4,5 +4,5 @@ CREATE TABLE urls
     url varchar(500) not null unique,
     user_id varchar(10) not null,
     created_at timestamp with time zone default now() not null,
-    is_deleted     bool default false
+    deleted_at  timestamp with time zone default null
 );
