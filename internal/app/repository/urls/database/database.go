@@ -80,10 +80,10 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	defer cancel()
 
 	result := ""
-	deletedAt := 0
+	var deletedAt int
 
 	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `SELECT url, deleted_at FROM urls WHERE id=$1`, urlID).Scan(&url, &result, &deletedAt)
+	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at=$2`, urlID, deletedAt).Scan(&url, &result)
 	if url.Valid {
 		return url.String, nil
 	}
