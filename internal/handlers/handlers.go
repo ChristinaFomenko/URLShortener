@@ -103,7 +103,7 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", url)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 func (h *handler) APIJSONShorten(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
