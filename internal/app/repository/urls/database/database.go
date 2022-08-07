@@ -79,15 +79,13 @@ func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	result := ""
-
 	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at IS NULL`, urlID).Scan(&url, &result)
+	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at IS NULL`, urlID).Scan(&url)
 	if url.Valid {
 		return url.String, nil
 	}
 
-	return result, nil
+	return "", errs.ErrURLNotFound
 }
 
 func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error) {
