@@ -29,7 +29,7 @@ type pgRepo struct {
 
 func NewRepo(dsn string) (*pgRepo, error) {
 	db, err := sql.Open("postgres", dsn)
-	err = migrations.Migrate(context.Background(), db)
+	_ = migrations.Migrate(context.Background(), db)
 	if err != nil {
 		return nil, err
 	}
