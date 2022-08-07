@@ -93,7 +93,7 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 
 	url, err := h.service.Expand(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, errs.ErrURLNotFound) {
+		if errors.Is(err, errs.ErrDeleted) {
 			http.Error(w, "url not found", http.StatusGone)
 			return
 		}
@@ -103,7 +103,7 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", url)
-	w.WriteHeader(http.StatusTemporaryRedirect)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 func (h *handler) APIJSONShorten(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
