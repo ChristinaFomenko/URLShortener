@@ -165,7 +165,8 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted = true WHERE user_id = $1 AND url = $2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2 AND deleted_at IS NULL")
+
 	if err != nil {
 		return err
 	}
