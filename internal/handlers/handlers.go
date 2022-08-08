@@ -92,11 +92,12 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url, err := h.service.Expand(r.Context(), id)
-	if errors.Is(err, errs.ErrDeleted) {
-		http.Error(w, "url not found", http.StatusGone)
-		w.WriteHeader(http.StatusGone)
-		return
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, errs.ErrDeleted) {
+			http.Error(w, "url not found", http.StatusGone)
+			return
+		}
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
