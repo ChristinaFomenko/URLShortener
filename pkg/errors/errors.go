@@ -28,11 +28,3 @@ func NewNotUniqueURLErr(urlID, originalURL string, err error) error {
 func (e *NotUniqueURLErr) Error() string {
 	return fmt.Sprintf("url not unique: urlID %v, originalURL: %v, error: %v ", e.URLID, e.OriginalURL, e.Err)
 }
-
-type GoneError struct {
-	ShortenURL string
-}
-
-func (e GoneError) Error() string {
-	return fmt.Sprintf("url %v gone", e.ShortenURL)
-}

@@ -76,30 +76,16 @@ func (r *pgRepo) Add(ctx context.Context, urlID, url, userID string) error {
 }
 
 func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
-	var (
-		result    string
-		deletedAt bool
-	)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	//var url sql.NullString
-	row := r.db.QueryRowContext(ctx, `SELECT url, deleted FROM urls WHERE id=$1`, urlID)
-	row.Scan(&result, &deletedAt)
-	if deletedAt {
-		return "", errs.GoneError{ShortenURL: result}
+	var url sql.NullString
+	_ = r.db.QueryRowContext(ctx, `select url from urls where id=$1 and deleted_at is null`, urlID).Scan(&url)
+	if url.Valid {
+		return url.String, nil
 	}
 
-	if result != "" {
-		url := models.NewURL(result, urlID)
-		return url.ShortURL, nil
-	} else {
-		return "", errs.ErrURLNotFound
-	}
-
-	//if url.Valid {
-	//	return url.String, nil
-	//}
+	return "", errs.ErrURLNotFound
 }
 
 func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error) {
