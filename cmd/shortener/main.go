@@ -79,7 +79,10 @@ func main() {
 	address := cfg.ServerAddress
 	log.WithField("address", address).Info("server starts")
 
-	log.Fatal(http.ListenAndServe(address, router))
+	go func() {
+		log.Fatal(http.ListenAndServe(address, router))
+		cancel()
+	}()
 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
