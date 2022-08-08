@@ -16,10 +16,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"os"
+	"os/signal"
 )
 
 func main() {
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Config
 	cfg, err := configs.NewConfig()
@@ -79,11 +81,11 @@ func main() {
 
 	log.Fatal(http.ListenAndServe(address, router))
 
-	//sigint := make(chan os.Signal, 1)
-	//signal.Notify(sigint, os.Interrupt)
-	//select {
-	//case <-sigint:
-	//	cancel()
-	//case <-ctx.Done():
-	//}
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+	select {
+	case <-sigint:
+		cancel()
+	case <-ctx.Done():
+	}
 }

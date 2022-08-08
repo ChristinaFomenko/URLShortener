@@ -92,7 +92,7 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url, err := h.service.Expand(r.Context(), id)
-	if errors.As(err, &errs.ErrDeleted) {
+	if errors.As(err, &errs.GoneError{}) {
 		http.Error(w, "url not found", http.StatusGone)
 		w.WriteHeader(http.StatusGone)
 		return
