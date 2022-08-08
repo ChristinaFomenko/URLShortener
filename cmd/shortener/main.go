@@ -16,12 +16,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"os"
-	"os/signal"
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(context.Background())
 
 	// Config
 	cfg, err := configs.NewConfig()
@@ -39,9 +37,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create a storage %v", err)
 	}
-	defer func(repository repositoryURL.Repo) {
-		_ = repository.Close()
-	}(repository)
+	//defer func(repository repositoryURL.Repo) {
+	//	_ = repository.Close()
+	//}(repository)
 
 	// Services
 	helper := generator.NewGenerator()
@@ -79,16 +77,13 @@ func main() {
 	address := cfg.ServerAddress
 	log.WithField("address", address).Info("server starts")
 
-	go func() {
-		log.Fatal(http.ListenAndServe(address, router))
-		cancel()
-	}()
+	log.Fatal(http.ListenAndServe(address, router))
 
-	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, os.Interrupt)
-	select {
-	case <-sigint:
-		cancel()
-	case <-ctx.Done():
-	}
+	//sigint := make(chan os.Signal, 1)
+	//signal.Notify(sigint, os.Interrupt)
+	//select {
+	//case <-sigint:
+	//	cancel()
+	//case <-ctx.Done():
+	//}
 }

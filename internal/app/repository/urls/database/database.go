@@ -76,16 +76,30 @@ func (r *pgRepo) Add(ctx context.Context, urlID, url, userID string) error {
 }
 
 func (r *pgRepo) Get(ctx context.Context, urlID string) (string, error) {
+	var (
+		result    string
+		deletedAt bool
+	)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var url sql.NullString
-	_ = r.db.QueryRowContext(ctx, `SELECT url FROM urls WHERE id=$1 AND deleted_at IS NULL`, urlID).Scan(&url)
-	if url.Valid {
-		return url.String, nil
+	//var url sql.NullString
+	row := r.db.QueryRowContext(ctx, `SELECT url, deleted FROM urls WHERE id=$1`, urlID)
+	row.Scan(&result, &deletedAt)
+	if deletedAt {
+		return "", errs.GoneError{ShortenURL: result}
 	}
 
-	return "", errs.ErrURLNotFound
+	if result != "" {
+		url := models.NewURL(result, urlID)
+		return url.ShortURL, nil
+	} else {
+		return "", errs.ErrURLNotFound
+	}
+
+	//if url.Valid {
+	//	return url.String, nil
+	//}
 }
 
 func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error) {
@@ -165,7 +179,7 @@ func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUse
 
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND url = $2 AND deleted_at IS NULL")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted = true WHERE user_id = $1 AND url = $2")
 	if err != nil {
 		return err
 	}
