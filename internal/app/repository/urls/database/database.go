@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/ChristinaFomenko/shortener/internal/app/models"
+	"github.com/ChristinaFomenko/shortener/migrations"
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
@@ -28,6 +29,7 @@ type pgRepo struct {
 
 func NewRepo(dsn string) (*pgRepo, error) {
 	db, err := sql.Open("postgres", dsn)
+	_ = migrations.Migrate(context.Background(), db)
 	if err != nil {
 		return nil, err
 	}
@@ -51,14 +53,14 @@ func (r *pgRepo) Add(ctx context.Context, urlID, url, userID string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, `insert into urls(id,url,user_id) values ($1,$2,$3)`,
+	_, err := r.db.ExecContext(ctx, `INSERT INTO urls(id,url,user_id) VALUES ($1,$2,$3)`,
 		urlID,
 		url,
 		&userID)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == pgerrcode.UniqueViolation {
-			err = r.db.QueryRowContext(ctx, "select id from urls where url=$1", url).Scan(&urlID)
+			err = r.db.QueryRowContext(ctx, "SELECT id FROM urls WHERE url=$1", url).Scan(&urlID)
 			if err != nil {
 				return err
 			}
@@ -91,7 +93,7 @@ func (r *pgRepo) FetchURLs(ctx context.Context, userID string) ([]models.UserURL
 	defer cancel()
 
 	res := make([]models.UserURL, 0)
-	rows, err := r.db.QueryContext(ctx, `select id, url from urls where user_id=$1 and deleted_at is null;`, userID)
+	rows, err := r.db.QueryContext(ctx, `select id, url from urls where user_id=$1 and deleted_at IS NULL;`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +136,7 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 		_ = tx.Rollback()
 	}(tx)
 
-	stmt, err := tx.PrepareContext(ctx, `insert into urls(id,url,user_id) values ($1,$2,$3);`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO urls(id,url,user_id) VALUES ($1,$2,$3);`)
 	if err != nil {
 		return err
 	}
@@ -145,6 +147,37 @@ func (r *pgRepo) AddBatch(ctx context.Context, urls []models.UserURL, userID str
 
 	for idx := range urls {
 		if _, err = stmt.ExecContext(ctx, urls[idx].ShortURL, urls[idx].OriginalURL, userID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (r *pgRepo) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urls SET deleted_at = now() WHERE user_id = $1 AND id = $2 AND deleted_at IS NULL")
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, url := range toDelete {
+		_, err = stmt.ExecContext(ctx, url.UserID, url.Short)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.New("record not found or already deleted")
+			}
 			return err
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/ChristinaFomenko/shortener/internal/app/models"
+	"github.com/ChristinaFomenko/shortener/internal/app/worker"
 	"github.com/go-chi/chi/v5"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -53,10 +54,12 @@ func TestShortenHandler(t *testing.T) {
 			serviceMock := mock.NewMockservice(ctrl)
 			serviceMock.EXPECT().Shorten(ctx, tt.url, defaultUserID).Return(tt.shortcut, nil)
 
+			wp := worker.Workers{}
+
 			authMock := mock.NewMockauth(ctrl)
 			authMock.EXPECT().UserID(gomock.Any()).Return(defaultUserID)
 
-			httpHandler := New(serviceMock, authMock, nil)
+			httpHandler := New(serviceMock, authMock, nil, &wp)
 
 			buffer := new(bytes.Buffer)
 			buffer.WriteString(tt.url)
@@ -122,7 +125,9 @@ func TestAPIJSONShorten_Success(t *testing.T) {
 			authMock := mock.NewMockauth(ctrl)
 			authMock.EXPECT().UserID(gomock.Any()).Return(defaultUserID)
 
-			httpHandler := New(serviceMock, authMock, nil)
+			wp := worker.Workers{}
+
+			httpHandler := New(serviceMock, authMock, nil, &wp)
 
 			buffer := new(bytes.Buffer)
 			buffer.WriteString(tt.body)
@@ -192,7 +197,9 @@ func TestAPIJSONShorten_BadRequest(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			httpHandler := New(nil, nil, nil)
+			wp := worker.Workers{}
+
+			httpHandler := New(nil, nil, nil, &wp)
 
 			buffer := new(bytes.Buffer)
 			buffer.WriteString(tt.body)
@@ -256,7 +263,9 @@ func TestExpandHandler_Success(t *testing.T) {
 			urlsSrvMock := mock.NewMockservice(ctrl)
 			urlsSrvMock.EXPECT().Expand(gomock.Any(), tt.urlID).Return(tt.url, tt.err)
 
-			httpHandler := New(urlsSrvMock, nil, nil)
+			wp := worker.Workers{}
+
+			httpHandler := New(urlsSrvMock, nil, nil, &wp)
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
 			rctx := chi.NewRouteContext()
@@ -333,7 +342,9 @@ func Test_handler_FetchURLs_Success(t *testing.T) {
 			authMock := mock.NewMockauth(ctrl)
 			authMock.EXPECT().UserID(gomock.Any()).Return(defaultUserID)
 
-			httpHandler := New(serviceMock, authMock, nil)
+			wp := worker.Workers{}
+
+			httpHandler := New(serviceMock, authMock, nil, &wp)
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
 
@@ -394,7 +405,9 @@ func Test_handler_Ping(t *testing.T) {
 			pingMock := mock.NewMockpingService(ctrl)
 			pingMock.EXPECT().Ping(ctx).Return(tt.success)
 
-			httpHandler := New(nil, nil, pingMock)
+			wp := worker.Workers{}
+
+			httpHandler := New(nil, nil, pingMock, &wp)
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
 

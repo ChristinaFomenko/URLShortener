@@ -35,6 +35,20 @@ func (m *Mockservice) EXPECT() *MockserviceMockRecorder {
 	return m.recorder
 }
 
+// DeleteUserURLs mocks base method.
+func (m *Mockservice) DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUserURLs", ctx, userID, toDelete)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUserURLs indicates an expected call of DeleteUserURLs.
+func (mr *MockserviceMockRecorder) DeleteUserURLs(ctx, userID, toDelete interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUserURLs", reflect.TypeOf((*Mockservice)(nil).DeleteUserURLs), ctx, userID, toDelete)
+}
+
 // Expand mocks base method.
 func (m *Mockservice) Expand(ctx context.Context, id string) (string, error) {
 	m.ctrl.T.Helper()

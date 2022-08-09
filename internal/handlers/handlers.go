@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/ChristinaFomenko/shortener/internal/app/models"
+	"github.com/ChristinaFomenko/shortener/internal/app/worker"
 	errs "github.com/ChristinaFomenko/shortener/pkg/errors"
 	"github.com/asaskevich/govalidator"
 	"github.com/go-chi/chi/v5"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	log "github.com/sirupsen/logrus"
 	"io"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -21,6 +23,7 @@ type service interface {
 	Expand(ctx context.Context, id string) (string, error)
 	FetchURLs(ctx context.Context, userID string) ([]models.UserURL, error)
 	ShortenBatch(ctx context.Context, originalURLs []models.OriginalURL, userID string) ([]models.UserURL, error)
+	DeleteUserURLs(ctx context.Context, userID string, toDelete []string) error
 }
 
 type auth interface {
@@ -35,13 +38,15 @@ type handler struct {
 	service     service
 	auth        auth
 	pingService pingService
+	wp          worker.Workers
 }
 
-func New(service service, userAuth auth, pingServ pingService) *handler {
+func New(service service, userAuth auth, pingServ pingService, wp *worker.Workers) *handler {
 	return &handler{
 		service:     service,
 		auth:        userAuth,
 		pingService: pingServ,
+		wp:          *wp,
 	}
 }
 
@@ -88,13 +93,11 @@ func (h *handler) Expand(w http.ResponseWriter, r *http.Request) {
 
 	url, err := h.service.Expand(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, errs.ErrURLNotFound) {
-			http.Error(w, "url not found", http.StatusNoContent)
-			return
-		}
-
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "url not found", http.StatusGone)
+		//if errors.Is(err, errs.ErrDeleted) {
+		//	http.Error(w, "url not found", http.StatusGone)
 		return
+		//}
 	}
 
 	w.Header().Set("Location", url)
@@ -243,4 +246,27 @@ func (h *handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil || len(body) == 0 {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	urlsToDelete := make([]string, 0)
+	err = json.Unmarshal(body, &urlsToDelete)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	userID := h.auth.UserID(r.Context())
+
+	h.wp.Push(func(ctx context.Context) error {
+		err := h.service.DeleteUserURLs(ctx, userID, urlsToDelete)
+		return err
+	})
+
+	w.WriteHeader(http.StatusAccepted)
 }

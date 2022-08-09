@@ -18,10 +18,10 @@ func NewHasher(secret []byte) *hasher {
 	}
 }
 
-func (e *hasher) Sign(value string) (string, error) {
+func (ha *hasher) Sign(value string) (string, error) {
 	encoded := hex.EncodeToString([]byte(value))
 
-	h := hmac.New(sha256.New, e.secret)
+	h := hmac.New(sha256.New, ha.secret)
 	_, err := h.Write([]byte(value))
 	if err != nil {
 		return "", fmt.Errorf("sign error: %w", err)
@@ -32,7 +32,7 @@ func (e *hasher) Sign(value string) (string, error) {
 	return encoded + hex.EncodeToString(sign), nil
 }
 
-func (e *hasher) Validate(value string, dataLength int64) (string, error) {
+func (ha *hasher) Validate(value string, dataLength int64) (string, error) {
 	decoded, err := hex.DecodeString(value)
 	if err != nil {
 		return "", fmt.Errorf("decode value error: %w", err)
@@ -41,7 +41,7 @@ func (e *hasher) Validate(value string, dataLength int64) (string, error) {
 	valueData := decoded[:dataLength]
 	valueSign := decoded[dataLength:]
 
-	h := hmac.New(sha256.New, e.secret)
+	h := hmac.New(sha256.New, ha.secret)
 	h.Write(valueData)
 	sign := h.Sum(nil)
 

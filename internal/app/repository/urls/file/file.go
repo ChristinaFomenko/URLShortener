@@ -196,3 +196,7 @@ func (r *fileRepository) urlExist(url string) (string, bool) {
 
 	return "", false
 }
+
+func (r *fileRepository) DeleteUserURLs(ctx context.Context, toDelete []models.DeleteUserURLs) error {
+	return nil
+}
